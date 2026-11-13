@@ -1,0 +1,1116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#24333a">
+<title>ReZo · The Neptune's Chessboard Trainer</title>
+<style>
+/* ===========================================================
+   REZO · THE NEPTUNE'S CHESS TRAINING
+   Code licensed under GNU GPL, as in the original prototype.
+   This is a self-contained file: no frameworks, no CDN required.
+   The 12-symbol arrangement is deliberately fixed.
+   =========================================================== */
+:root {
+    --ink: #24333a;
+    --ink-2: #34454c;
+    --paper: #f1efe8;
+    --paper-bright: #fcfaf4;
+    --line: #cbc8bd;
+    --subtle: #707a79;
+    --brass: #c49e66;
+    --brown: #8b4b26;
+    --red: #d4353b;
+    --green: #38b63b;
+    --blue: #3155cd;
+    --symbol-size: 100px;
+    --sidebar-width: 270px;
+    --right-width: 356px;
+}
+* { box-sizing: border-box; }
+html { min-height:100%; }
+body {
+    margin:0;
+    min-height:100vh;
+    color:var(--ink);
+    font-family: "Segoe UI", Arial, sans-serif;
+    background:var(--paper);
+}
+button, select, input { font:inherit; }
+button { cursor:pointer; }
+button:focus-visible, select:focus-visible, input:focus-visible, a:focus-visible {
+    outline:3px solid var(--brass);
+    outline-offset:3px;
+}
+button:disabled { opacity:.5; cursor:default; }
+.app {
+    height:100vh;
+    min-height:640px;
+    display:grid;
+    grid-template-columns:var(--sidebar-width) minmax(480px, 1fr) var(--right-width);
+    transition:grid-template-columns .2s ease;
+}
+.app.board-hidden { grid-template-columns:var(--sidebar-width) minmax(480px, 1fr) 0px; }
+
+/* LEFT: typography-led navigational rail rather than a dashboard card. */
+.sidebar {
+    background:var(--ink);
+    color:#f0eee6;
+    display:flex;
+    flex-direction:column;
+    min-width:0; min-height:0;
+    border-right:1px solid #16252b;
+}
+.brand { padding:27px 24px 22px; border-bottom:1px solid #425057; }
+.brand-sign { font:700 12px/1.5 Georgia,serif; letter-spacing:.23em; color:var(--brass); }
+.brand h1 { margin:12px 0 3px; font:normal 37px/1 Georgia,serif; letter-spacing:-.055em; }
+.brand p { font-size:11px; letter-spacing:.16em; margin:9px 0 0; color:#a8b1b0; text-transform:uppercase; }
+.left-scroll { padding:12px 12px 24px; flex:1; min-height:0; overflow:auto; scrollbar-color:#64716f transparent; }
+.rail-heading { margin:20px 10px 8px; font-size:10px; letter-spacing:.2em; color:#b9aa94; text-transform:uppercase; }
+.mode-button {
+    border:1px solid transparent; background:transparent; text-align:left; color:#e6e9e5;
+    display:grid; grid-template-columns:28px 1fr; align-items:center;
+    gap:8px; padding:10px 10px; width:100%; border-radius:3px;
+    transition:background .13s ease, border-color .13s ease;
+}
+.mode-button:hover { background:#304148; }
+.mode-button.active { background:#3c4b4d; border-color:#69716b; }
+.mode-number { font:12px Georgia,serif; color:#bfa57c; }
+.mode-label { display:block; font-size:13px; font-weight:650; letter-spacing:.012em; }
+.mode-desc { display:block; font-size:11px; line-height:1.5; color:#b0bab8; padding-top:2px; }
+.mode-button.active .mode-label { color:#fff; }
+.rail-config { margin:17px 9px 2px; padding:16px 0 7px; border-top:1px solid #506067; }
+.config-title { margin-bottom:12px; color:#d4c3a9; letter-spacing:.18em; font-size:10px; text-transform:uppercase; }
+.field { margin:0 0 14px; }
+.field label { display:block; margin-bottom:6px; color:#cdd4d1; font-size:11px; }
+.field select, .field input[type="text"] {
+    width:100%; padding:9px 10px; background:#182a30; color:#f8f5ec;
+    border:1px solid #64706f; border-radius:3px;
+}
+.field .field-note { margin:6px 0 0; color:#adbab7; font-size:11px; line-height:1.5; }
+.field .field-error { margin:6px 0 0; color:#ffbaa9; font-size:11px; min-height:0; }
+.tick-setting { display:flex; align-items:center; gap:10px; padding:9px 0; font-size:12px; color:#d9dfdc; cursor:pointer; }
+.tick-setting input { width:15px; height:15px; accent-color:var(--brass); }
+.side-footer { padding:16px 22px 22px; border-top:1px solid #45545a; }
+.side-footer .credit { color:#b6c0bc; font-size:11px; line-height:1.6; }
+.side-footer a { color:#e0c39a; font-size:11px; text-underline-offset:3px; }
+.side-footer .links { display:flex; gap:16px; padding-top:10px; }
+
+/* MAIN: open working area, generous negative space, NO centred UI card. */
+.training {
+    min-width:0; min-height:0;
+    display:flex;
+    flex-direction:column;
+    position:relative;
+    background:
+       linear-gradient(90deg, transparent calc(50% - 1px), #e8e5dc calc(50% - 1px), #e8e5dc 50%, transparent 50%) center / 100% 100% no-repeat,
+       var(--paper);
+}
+.training > * { position:relative; }
+.topline {
+    min-height:68px; display:flex; justify-content:space-between; align-items:center;
+    padding:0 32px; border-bottom:1px solid var(--line); background:var(--paper);
+    gap:16px;
+}
+.topline-kicker { font-size:10px; letter-spacing:.19em; text-transform:uppercase; color:#687572; }
+.topline-right { display:flex; align-items:center; gap:13px; }
+.minor-button { border:0; color:var(--ink); background:transparent; padding:7px 2px; font-size:11px; letter-spacing:.06em; text-decoration:underline; text-underline-offset:4px; }
+.mode-readout { color:#707b79; font-size:11px; }
+.training-core { flex:1; min-height:0; overflow-y:auto; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:0; padding:20px 18px 24px; background:var(--paper); }
+.question-header { width:min(480px, 100%); margin-bottom:20px; text-align:center; }
+.question-kicker { color:#8b6e4f; font-size:11px; letter-spacing:.22em; font-weight:650; text-transform:uppercase; }
+.question-symbol {
+    margin:4px auto 0; height:100px;
+    display:flex; justify-content:center; align-items:center; gap:14px;
+    color:var(--ink); font:normal 91px/1 Georgia,"Times New Roman",serif;
+    letter-spacing:-.06em;
+}
+.question-symbol.is-hidden { color:#9a9e99; letter-spacing:.05em; }
+.question-symbol .piece {font-size:64px; color:#8f7857; line-height:1;}
+.question-instruction { min-height:37px; display:flex; justify-content:center; align-items:center; flex-wrap:wrap; gap:6px; font-size:13px; color:#657271; text-align:center; line-height:1.5; }
+.question-instruction strong {color:var(--ink); font-weight:650;}
+.question-note { min-height:20px; font:12px Georgia,serif; color:#8c8070; text-align:center; }
+.symbol-section { width:400px; max-width:100%; }
+.grid-header { width:100%; display:flex; justify-content:space-between; align-items:center; padding-bottom:9px; font-size:10px; letter-spacing:.16em; color:#7e7f78; text-transform:uppercase; }
+.symbol-grid {
+    display:grid; grid-template-columns:repeat(4,var(--symbol-size));
+    width:400px; height:300px; overflow:hidden;
+    border:2px solid #69726c; background:#f9f8f2;
+    box-shadow:4px 5px 0 #c4c6bd, 0 15px 33px #17252c13;
+}
+.symbol-cell {
+    border:0; border-right:1px solid #d2d4cb; border-bottom:1px solid #d2d4cb;
+    padding:0; margin:0; position:relative; background:#f9f8f2;
+    width:var(--symbol-size); height:var(--symbol-size);
+    display:flex; align-items:center; justify-content:center;
+    transition:background .12s ease;
+}
+.symbol-cell:nth-child(4n) { border-right:0; }
+.symbol-cell:nth-child(n+9) { border-bottom:0; }
+.symbol-cell:hover { background:#e8eae1; }
+.symbol-cell.picked { background:#dde1d7; }
+.symbol-cell svg { width:86px; height:86px; display:block; }
+.symbol-cell .glyph { stroke:#324d37; stroke-width:3; stroke-linejoin:round; }
+.symbol-cell:active svg { transform:scale(.96); }
+.symbol-cell .letter-hint { position:absolute; bottom:5px; right:8px; font-size:9px; color:#9a9f98; }
+.symbol-cell .word-name { position:absolute; left:6px; top:4px; font:bold 10px/1.3 "Segoe UI",sans-serif; color:#495554; letter-spacing:.07em; }
+.answer-lane { display:flex; gap:28px; justify-content:center; align-items:flex-start; padding-top:25px; }
+.answer-unit {display:flex; flex-direction:column; align-items:center; width:123px; }
+.answer-flag {
+    width:88px; height:55px; display:flex; justify-content:center; align-items:center;
+    border:1px solid #81928a; border-radius:2px; color:#52675b;
+    background:#e1e9da; font:normal 23px Georgia,serif;
+    transition:background .14s ease, color .14s ease;
+}
+.answer-flag.correct {background:#90d984; border-color:#4b9750; color:#1f4e2e;}
+.answer-flag.wrong {background:#dd6c60; border-color:#ae423b; color:#fff;}
+.answer-caption {font-size:10px; color:#677470; letter-spacing:.12em; text-transform:uppercase; margin-top:8px;}
+.action-row { display:flex; justify-content:center; gap:11px; flex-wrap:wrap; margin:24px 0 0; }
+.primary-btn, .secondary-btn {
+    border:1px solid #2c3d42; border-radius:2px; min-height:42px;
+    padding:0 19px; font-size:12px; font-weight:700; letter-spacing:.035em;
+}
+.primary-btn {color:#f5f3eb; background:#2b3a40;}
+.primary-btn:hover { background:#40545b; }
+.secondary-btn { color:#324147; background:transparent; }
+.secondary-btn:hover { background:#e4e5dc; }
+.key-help {margin-top:15px; text-align:center; color:#8b918b; font-size:10px; line-height:1.7; letter-spacing:.05em;}
+kbd {font:10px/1.4 monospace; border:1px solid #c4c6be; border-bottom-width:2px; border-radius:2px; padding:1px 4px; background:#f9f8f1; color:#53615d;}
+.scorebar {
+    min-height:74px; padding:12px 29px; border-top:1px solid var(--line);
+    background:#eae8df; display:flex; align-items:center; justify-content:space-between; gap:16px;
+}
+.score-cluster {display:flex; flex-wrap:wrap; gap:22px;}
+.score-box {display:flex; flex-direction:column; gap:4px; }
+.score-box .number {font:normal 22px/1 Georgia,serif; color:var(--ink);}
+.score-box .name {font-size:9px; letter-spacing:.14em; text-transform:uppercase; color:#75807b;}
+.score-actions {display:flex; align-items:center; gap:12px;}
+.score-actions .minor-button {white-space:nowrap; }
+
+/* RIGHT: compact independent board plus an offline PGN move viewer. */
+.board-aside {
+    min-width:0; min-height:0; overflow:auto; border-left:1px solid #c5c8c0;
+    background:#e7e4da;
+}
+.board-aside .board-inner { width:var(--right-width); min-height:100%; padding:27px 23px; }
+.aside-head { font:11px/1.5 "Segoe UI",sans-serif; color:#857054; letter-spacing:.2em; text-transform:uppercase; }
+.aside-title { margin:11px 0 7px; font:normal 25px/1.1 Georgia,serif; letter-spacing:-.03em; }
+.aside-desc {margin:0 0 23px; color:#68716e; font-size:12px; line-height:1.6; }
+.board-wrap { display:flex; justify-content:center; width:100%; }
+.chessboard {
+    width:306px; height:306px; display:grid; grid-template-columns:repeat(8,1fr);
+    grid-template-rows:repeat(8,1fr); border:5px solid #635649;
+    box-shadow:0 0 0 1px #afaa9c, 4px 7px 0 #c2bdb2;
+    flex-shrink:0; transition:width .14s ease,height .14s ease;
+}
+.chess-square {position:relative; min-width:0; min-height:0;}
+.chess-square.light {background:#f1e8d8;}
+.chess-square.dark {background:#8f9b91;}
+.chess-square.lit::after {content:""; position:absolute; inset:8%; background:#eac15c99; border:2px solid #fff5c7; box-shadow:0 0 8px #ffffff8c;}
+.board-caption { text-align:center; font-size:10px; color:#8c7e68; text-transform:uppercase; letter-spacing:.18em; margin:19px 0 13px; }
+.board-tools {display:flex; justify-content:center; flex-wrap:wrap; gap:8px;}
+.board-tools button {background:transparent; border:1px solid #bdbaad; color:#4b5957; min-height:35px; padding:7px 10px; border-radius:2px; font-size:12px;}
+.board-tools button:hover {background:#d7d9d0;}
+.aside-rule {border:0; border-top:1px solid #c1c0b6; margin:24px 0 18px;}
+.aside-foot {font-size:11px; line-height:1.7; color:#818780; }
+.aside-foot strong { color:#4d605c; }
+.right-hide {margin-top:22px;}
+.right-hide button {font-size:11px; padding:5px 0; text-decoration:underline; text-underline-offset:4px; border:0; background:none; color:#6b716e;}
+.hidden {display:none !important;}
+.visually-hidden {position:absolute !important; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0,0,0,0); white-space:nowrap; border:0;}
+
+
+/* Game study is subordinate to the large, fixed ReZo answer field. */
+.chess-square {display:flex;align-items:center;justify-content:center; isolation:isolate;}
+.chess-square.move-from { background-image:linear-gradient(#c5ad6e80,#c5ad6e80); }
+.chess-square.move-to { background-image:linear-gradient(#f5d252aa,#f5d252aa); outline:2px solid #bd842a;outline-offset:-2px; }
+.board-piece {position:relative;z-index:2; font-family:"Segoe UI Symbol","DejaVu Sans",sans-serif;font-size:calc(var(--board-piece-size, 36px));line-height:1;user-select:none;pointer-events:none;}
+.white-piece {color:#fff9ed;text-shadow:-1px -1px 0 #333b3a,1px -1px 0 #333b3a,-1px 1px 0 #333b3a,1px 1px 0 #333b3a,0 2px 2px #26352b55;}
+.black-piece {color:#26343b;text-shadow:0 1px 1px #e9eee466;}
+.pgn-game-info {margin-top:13px;text-align:center;min-height:68px;}
+.pgn-players {font:14px/1.4 Georgia,serif;color:#3a484a;overflow-wrap:anywhere;}
+.pgn-moving {margin-top:5px;font-size:12px;color:#715936;}
+.pgn-progress {margin-top:5px;color:#8c897e;font-size:10px;letter-spacing:.07em;}
+.pgn-navigation {margin-top:8px;}
+.pgn-editor {margin-top:14px;padding:13px;border:1px solid #c5bbab;background:#f5f1e8;}
+.pgn-editor>label {display:block;font-size:11px;color:#435353;margin-bottom:7px;}
+.pgn-editor textarea {width:100%;min-height:113px;max-height:230px;resize:vertical;border:1px solid #b5b3a8;background:#fffdf7;color:#303d3e;padding:9px;font:11px/1.55 Consolas,monospace;}
+.pgn-editor .file-picker {margin:8px 0 10px;color:#7d6d55;}
+.pgn-editor input[type=file] {display:block;margin-top:5px;width:100%;font-size:10px;color:#586564;}
+.pgn-actions {display:flex;gap:7px;margin-top:12px;}
+.pgn-actions button {padding:6px 11px;min-height:33px;font-size:11px;}
+.pgn-error {font-size:11px;line-height:1.5;color:#b34c3e;margin-top:6px;}
+button:disabled {opacity:.42;}
+@media (max-height:850px) and (min-width:1051px) {
+  .training-core { justify-content:flex-start; padding-top:24px; }
+  .question-header { margin-bottom:13px; }
+  .question-symbol { height:78px; font-size:72px; }
+  .answer-lane { padding-top:15px; }
+  .action-row { margin-top:15px; }
+}
+@media (max-width:1250px) {
+  :root { --sidebar-width:240px; --right-width:334px; }
+  .app {grid-template-columns:var(--sidebar-width) minmax(440px,1fr) var(--right-width);}
+  .app.board-hidden { grid-template-columns:var(--sidebar-width) minmax(440px,1fr) 0px; }
+  .board-aside .board-inner {padding-left:13px; padding-right:13px;}
+}
+@media (max-width:1040px) {
+  .app,.app.board-hidden {grid-template-columns:240px minmax(0,1fr);height:auto;min-height:100vh;}
+  .board-aside {grid-column:2; border-left:0; border-top:1px solid var(--line);}
+  .board-aside .board-inner {width:auto; min-height:0;}
+  .app.board-hidden .board-aside {display:none;}
+  .topline {padding:0 20px;}
+  .training-core {padding-top:35px;padding-bottom:35px;}
+}
+@media (max-width:680px) {
+  .app, .app.board-hidden {display:block;height:auto;min-height:100vh;}
+  .sidebar {display:block;}
+  .brand {padding:14px 18px;}
+  .brand h1 {font-size:30px;margin-top:4px;}
+  .left-scroll {max-height:220px; overflow-y:auto;}
+  .side-footer {display:none;}
+  .training-core {padding:27px 12px;}
+  .question-symbol {font-size:74px; height:87px;}
+  .symbol-section {width: min(400px, 96vw);}
+  .symbol-grid {width:100%; height:auto; aspect-ratio:4/3;grid-template-columns:repeat(4,1fr);}
+  .symbol-cell {width:100%; height:100%;}
+  .symbol-cell svg {width:85%; height:85%;}
+  .topline {min-height:54px; padding:0 14px;}
+  .mode-readout {display:none;}
+  .scorebar {padding:15px;}
+  .score-cluster {gap:14px;}
+  .board-aside .board-inner {width:auto;}
+}
+@media (prefers-reduced-motion:reduce) { * { transition:none !important; } }
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <aside class="sidebar" aria-label="Exercise settings">
+    <div class="brand">
+      <div class="brand-sign">THE NEPTUNE'S</div>
+      <h1>ReZo</h1>
+      <p>Chessboard geometry · training 01</p>
+    </div>
+    <div class="left-scroll">
+      <nav id="modeNav" aria-label="Training sets"></nav>
+      <div class="rail-config" id="modeConfig" aria-label="Exercise options"></div>
+      <div class="rail-config">
+        <div class="config-title">Display</div>
+        <label class="tick-setting"><input type="checkbox" id="showNames"> Show symbol names</label>
+        <label class="tick-setting"><input type="checkbox" id="showKeys"> Show keyboard hints</label>
+        <label class="tick-setting"><input type="checkbox" id="showPrompt" checked> Show square / origin</label>
+        <label class="tick-setting"><input type="checkbox" id="autoAdvance"> Next question after answering</label>
+        <label class="tick-setting"><input type="checkbox" id="showPgnTarget" checked> PGN: show target above</label>
+      </div>
+    </div>
+    <footer class="side-footer">
+      <div class="credit">An exercise in overlearning the board.<br>Original system by <strong>The Neptune</strong>.</div>
+      <div class="links"><a href="https://lichess.org/training" target="_blank" rel="noopener noreferrer">Lichess</a><a href="https://www.chess.com/puzzles" target="_blank" rel="noopener noreferrer">Chess.com</a></div>
+    </footer>
+  </aside>
+
+  <main class="training" aria-label="ReZo trainer">
+    <div class="topline">
+      <div class="topline-kicker">The Neptune / Training field</div>
+      <div class="topline-right">
+        <span class="mode-readout" id="currentModeLabel">Whole board</span>
+        <button class="minor-button" type="button" id="toggleBoardTop">Hide chessboard</button>
+      </div>
+    </div>
+    <div class="training-core">
+      <section class="question-header" aria-label="Current question">
+        <div class="question-kicker" id="questionKicker">01 / Full board</div>
+        <div class="question-symbol" id="questionDisplay" aria-live="polite">—</div>
+        <div class="question-instruction" id="questionInstruction">Select the first and second ReZo coordinates.</div>
+        <div class="question-note" id="questionNote"></div>
+      </section>
+
+      <section class="symbol-section" aria-label="Twelve answer symbols">
+        <div class="grid-header"><span>The twelve signs</span><span>Fixed positions · 4 × 3</span></div>
+        <div class="symbol-grid" id="symbolGrid"></div>
+        <div class="answer-lane" aria-live="polite">
+          <div class="answer-unit"><div class="answer-flag" id="answer1">—</div><div class="answer-caption">01 / Sum</div></div>
+          <div class="answer-unit"><div class="answer-flag" id="answer2">—</div><div class="answer-caption">02 / Difference</div></div>
+        </div>
+        <div class="action-row">
+          <button id="previousButton" class="secondary-btn" type="button">← Previous</button>
+          <button id="nextButton" class="primary-btn" type="button">Next problem <span aria-hidden="true">→</span></button>
+          <button id="retryButton" class="secondary-btn" type="button">Try again</button>
+          <button id="revealButton" class="secondary-btn hidden" type="button">Reveal destination</button>
+        </div>
+        <div class="key-help"><kbd>N</kbd> next &nbsp; <kbd>P</kbd> previous &nbsp; <kbd>T</kbd> retry &nbsp; <span id="keyLegend">Q W E R / A S D F / Z X C V to select signs</span></div>
+      </section>
+    </div>
+    <footer class="scorebar" aria-label="Session score">
+      <div class="score-cluster">
+        <div class="score-box"><span class="number" id="rightScore">0</span><span class="name">Right</span></div>
+        <div class="score-box"><span class="number" id="wrongScore">0</span><span class="name">Wrong</span></div>
+        <div class="score-box"><span class="number" id="skipScore">0</span><span class="name">Skipped</span></div>
+        <div class="score-box"><span class="number" id="askedScore">1</span><span class="name">Question</span></div>
+      </div>
+      <div class="score-actions"><button type="button" class="minor-button" id="resetScore">Reset session</button></div>
+    </footer>
+  </main>
+
+  <aside class="board-aside" id="boardAside" aria-label="Optional chessboard">
+    <div class="board-inner">
+      <div class="aside-head">Position study / PGN</div>
+      <h2 class="aside-title">The other board.</h2>
+      <p class="aside-desc">Move-by-move game study. Load a PGN to play through the positions and practise each destination on the ReZo grid.</p>
+      <div class="board-wrap"><div class="chessboard" id="chessboard" role="img" aria-label="Chessboard showing the current game position"></div></div>
+      <div class="board-caption" id="orientationCaption">White's perspective</div>
+      <div class="board-tools">
+        <button type="button" id="flipBoard">↻ Flip</button>
+        <button type="button" id="smallerBoard" aria-label="Make chessboard smaller">− Smaller</button>
+        <button type="button" id="largerBoard" aria-label="Make chessboard larger">+ Larger</button>
+      </div>
+      <div class="pgn-game-info">
+        <div class="pgn-players" id="gamePlayers">No game loaded</div>
+        <div class="pgn-moving" id="gameMoveCaption">Paste or open a PGN to begin</div>
+        <div class="pgn-progress" id="gameProgress">—</div>
+      </div>
+      <div class="board-tools pgn-navigation">
+        <button type="button" id="pgnFirst" aria-label="Starting position">|←</button>
+        <button type="button" id="pgnPrev" aria-label="Previous move">← Move</button>
+        <button type="button" id="pgnNext" aria-label="Next move">Move →</button>
+        <button type="button" id="togglePgn" aria-expanded="false" aria-controls="pgnEditor">PGN ▸</button>
+      </div>
+      <div id="pgnEditor" class="pgn-editor hidden">
+        <label for="pgnText">Paste a game's PGN</label>
+        <textarea id="pgnText" rows="5" placeholder="[Event &quot;Example&quot;]&#10;1. e4 e5 2. Nf3 Nc6 3. Bb5 a6 ..." spellcheck="false"></textarea>
+		
+        <!-- <label class="file-picker">Or open a local .pgn file<input type="file" id="pgnFile" accept=".pgn,.txt,text/plain"></label> -->
+		
+        <div class="pgn-actions"><button type="button" id="loadPgn" class="primary-btn">Load game</button><button type="button" id="closePgn" class="secondary-btn">Close</button></div>
+        <div class="pgn-error" id="pgnError" role="alert"></div>
+      </div>
+      <hr class="aside-rule">
+      <div class="aside-foot">The highlighted <strong>destination</strong> is the ReZo target. Use <strong>N / P</strong> to advance or repeat moves while in PGN mode. No coordinates are printed on the board.</div>
+      <div class="right-hide"><button type="button" id="hideBoardRight">Hide this board</button></div>
+    </div>
+  </aside>
+</div>
+<script>
+"use strict";
+/* =============================================================
+   DATA / MATHEMATICS
+   Chess coordinates remain on an 8 × 8 board. REZO_MODULUS is
+   intentionally 12: don't confuse these two independent sizes.
+   ============================================================= */
+const BOARD_SIZE = 8;
+const REZO_MODULUS = 12;
+const SYMBOL_NAMES = ["ZO","RET","GAN","BA","ZAT","RIN","GO","BIT","ZEN","RE","GAT","BIN"];
+const COLORS = ["#8b4b26", "#d4353b", "#38b63b", "#3155cd"];
+const COLOR_NAMES = ["brown", "red", "green", "blue"];
+const SHAPE_NAMES = ["circle", "triangle", "diamond"];
+const KEY_LAYOUT = "QWERASDFZXCV";
+const KNIGHT_OFFSETS = [[1,2],[2,1],[-1,2],[-2,1],[1,-2],[2,-1],[-1,-2],[-2,-1]];
+const MODES = [
+    {id:"all", name:"Whole board", desc:"All 64 squares", group:"Square sets"},
+    {id:"rank", name:"Single rank", desc:"Work along one rank", group:"Square sets"},
+    {id:"file", name:"Single file", desc:"Work along one file", group:"Square sets"},
+    {id:"pair", name:"Two-square set", desc:"e.g. c4 and c8", group:"Square sets"},
+    {id:"mirror", name:"Mirror pairs", desc:"Reflections of the board", group:"Pattern sets"},
+    {id:"reverse", name:"Reversed signs", desc:"ZAT–GAT / GAT–ZAT", group:"Pattern sets"},
+    {id:"diagonal", name:"One diagonal", desc:"Keep one coordinate fixed", group:"Pattern sets"},
+    {id:"twoRanks", name:"Two-rank jumps", desc:"Odd ranks, ±2", group:"Movement sets"},
+    {id:"knight", name:"Knight jumps", desc:"Work out the destination", group:"Movement sets"},
+    {id:"queen", name:"Queen from king", desc:"Queen a knight-step away", group:"Movement sets"},
+    {id:"pgn", name:"PGN game moves", desc:"Practise destinations in order", group:"Game study"}
+];
+const el = id => document.getElementById(id);
+const mod = (n,m=REZO_MODULUS) => ((n%m)+m)%m;
+const letter = f => String.fromCharCode(96+f);
+const inBounds = (f,r) => f>=1 && f<=BOARD_SIZE && r>=1 && r<=BOARD_SIZE;
+class Coordinate {
+    constructor(file,rank) {
+        if (!inBounds(file,rank)) throw new RangeError(`Invalid chess square: ${file},${rank}`);
+        this.file=file; this.rank=rank; this.name=letter(file)+rank;
+    }
+    get sum() { return mod(this.file+this.rank); }
+    get difference() { return mod(this.file-this.rank); }
+    get answer() { return [this.sum,this.difference]; }
+}
+const ALL_SQUARES = Array.from({length:BOARD_SIZE}, (_,f) =>
+    Array.from({length:BOARD_SIZE}, (_,r) => new Coordinate(f+1,r+1))).flat();
+function parseSquare(input) {
+    const match = /^([a-h])([1-8])$/i.exec(String(input).trim());
+    return match ? new Coordinate(match[1].toLowerCase().charCodeAt(0)-96, Number(match[2])) : null;
+}
+function shuffle(items) {
+    const a=[...items];
+    for(let i=a.length-1;i>0;i--) {const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]];}
+    return a;
+}
+function choiceLabel(q) {return q.target.name;}
+function plain(square, context="") {return {target:square, kind:"named", context};}
+function pairedQuestions(pairs, context) {
+    return shuffle(pairs).flatMap(([a,b]) => [
+        {target:a, kind:"named", context:`${context} · partner ${b.name}`, note:"Pair / 1 of 2"},
+        {target:b, kind:"named", context:`${context} · partner ${a.name}`, note:"Pair / 2 of 2"}
+    ]);
+}
+const config = {rank:4, file:4, pairA:"c4", pairB:"c8", axis:"ranks", family:"sum", familyNumber:9};
+function buildQuestions(mode) {
+    switch(mode) {
+      case "rank": return shuffle(ALL_SQUARES.filter(s=>s.rank===config.rank).map(s=>plain(s,`Rank ${config.rank}`)));
+      case "file": return shuffle(ALL_SQUARES.filter(s=>s.file===config.file).map(s=>plain(s,`File ${letter(config.file)}`)));
+      case "pair": {
+        const a=parseSquare(config.pairA),b=parseSquare(config.pairB);
+        return a && b && a.name!==b.name ? pairedQuestions([[a,b]],"Selected pair") : [];
+      }
+      case "mirror": {
+        const pairs=[], seen=new Set();
+        for (const s of ALL_SQUARES) {
+            const p=config.axis==="files" ? new Coordinate(9-s.file,s.rank)
+                   : config.axis==="both" ? new Coordinate(9-s.file,9-s.rank)
+                   : new Coordinate(s.file,9-s.rank);
+            const key=[s.name,p.name].sort().join(":");
+            if(!seen.has(key) && s.name!==p.name) {pairs.push([s,p]); seen.add(key);}
+        }
+        return pairedQuestions(pairs,"Mirror · "+({ranks:"across ranks",files:"across files",both:"through centre"}[config.axis]));
+      }
+      case "reverse": {
+        const pairs=[];
+        for(let i=0;i<ALL_SQUARES.length;i++) for(let j=i+1;j<ALL_SQUARES.length;j++) {
+            const a=ALL_SQUARES[i],b=ALL_SQUARES[j];
+            if(a.sum===b.difference && a.difference===b.sum) pairs.push([a,b]);
+        }
+        return pairedQuestions(pairs,"Coordinates in reverse order");
+      }
+      case "diagonal": {
+        const fixed= config.familyNumber;
+        return shuffle(ALL_SQUARES.filter(s => s[config.family]===fixed)
+             .map(s=>plain(s,`${config.family==="sum"?"Sum":"Difference"} diagonal · ${SYMBOL_NAMES[fixed]}`)));
+      }
+      case "twoRanks": {
+        const pairs=[];
+        for(let f=1; f<=8; f++) for(const r of [1,3,5]) {
+            const from=new Coordinate(f,r),to=new Coordinate(f,r+2);
+            pairs.push([
+                {target:to,origin:from,kind:"offset",df:0,dr:2,context:"Two ranks forward · +2",note:"Odd-rank comparison / forward"},
+                {target:from,origin:to,kind:"offset",df:0,dr:-2,context:"Two ranks back · −2",note:"Odd-rank comparison / backward"}
+            ]);
+        }
+        return shuffle(pairs).flat();
+      }
+      case "knight":
+      case "queen": {
+        const movements=[];
+        for(const from of ALL_SQUARES) for(const [df,dr] of KNIGHT_OFFSETS) {
+            if(inBounds(from.file+df,from.rank+dr)) movements.push({
+                target:new Coordinate(from.file+df,from.rank+dr), origin:from,
+                kind:"offset",df,dr,
+                context:mode==="queen"?"Place the queen a knight's move away":"Follow the knight's move",
+                note:mode==="queen"?"King → queen":"Knight → destination",
+                piece:mode==="queen"?"♔":"♘"
+            });
+        }
+        return shuffle(movements);
+      }
+      case "pgn": return game.moves.map((m,i)=>gameQuestion(m,i));
+      case "all":
+      default: return shuffle(ALL_SQUARES.map(s=>plain(s,"Any file · any rank")));
+    }
+}
+
+/* =============================================================
+   ENGINE / SCORING
+   One question is counted once. A wrong FIRST click records wrong
+   immediately, deliberately preserving the original rule.
+   Try Again clears selections but never changes an already recorded
+   score. Next on an untouched question counts it as skipped.
+   ============================================================= */
+class Session {
+    constructor() {this.correct=0;this.wrong=0;this.skipped=0;this.asked=0;this.bag=[];this.lastSquare="";this.history=[];this.historyIndex=-1;}
+    record(result) {this[result]++;}
+    clearHistory() {this.bag=[];this.history=[];this.historyIndex=-1;this.lastSquare="";}
+    reset() {this.correct=this.wrong=this.skipped=this.asked=0;this.clearHistory();}
+}
+const session=new Session();
+const state={mode:"all", question:null, selections:[], status:null, boardVisible:true,
+             boardFlipped:false, boardPixels:306, showNames:false, showKeys:false,
+             showPrompt:true, showPgnTarget:true, autoAdvance:false, advanceTimer:null,revealed:false};
+function cancelAdvance() {if(state.advanceTimer!==null) {clearTimeout(state.advanceTimer);state.advanceTimer=null;}}
+function leaveQuestion() {
+    if(!state.question) return;
+    const entry=session.history[session.historyIndex];
+    if(entry && !entry.result) {entry.result='skipped';session.record('skipped');}
+}
+function refill() {
+    if(state.mode==='pgn') return; // PGN ends at the last move; never loop automatically.
+    session.bag=buildQuestions(state.mode);
+    if(!["pair","mirror","reverse","twoRanks"].includes(state.mode) && session.bag.length>1 && session.bag[0].target.name===session.lastSquare) {
+        const swap=session.bag.findIndex((q,i)=>i>0 && q.target.name!==session.lastSquare);
+        if(swap>0) [session.bag[0],session.bag[swap]]=[session.bag[swap],session.bag[0]];
+    }
+}
+function showHistoryQuestion() {
+    const entry=session.history[session.historyIndex];
+    state.question=entry?.question||null;
+    state.selections=[];state.status=entry?.result||null;state.revealed=false;
+    if(state.mode==='pgn' && entry) goToPly(entry.question.pgnPly);
+    if(state.question) renderQuestion(); else renderEmptyQuestion();
+    renderAnswers();renderScore();
+    el('previousButton').disabled=session.historyIndex<=0;
+    el('nextButton').disabled=state.mode==='pgn' && session.historyIndex===session.history.length-1 && !session.bag.length;
+}
+function nextQuestion() {
+    cancelAdvance();
+    // We never create duplicate questions when moving back and forward in history.
+    if(session.historyIndex+1<session.history.length) {
+        leaveQuestion();session.historyIndex++;showHistoryQuestion();return;
+    }
+    if(!session.bag.length) {
+        if(state.mode==='pgn') {
+            // A newly loaded game supplies the entire main line only once.
+            if(!session.history.length && game.loaded) session.bag=buildQuestions('pgn');
+        } else refill();
+    }
+    if(!session.bag.length) {
+        if(!state.question)renderEmptyQuestion();
+        renderScore();refreshNavigationButtons();return;
+    }
+    leaveQuestion();
+    const q=session.bag.shift();session.lastSquare=q.target.name;
+    session.history.push({question:q,result:null});session.historyIndex=session.history.length-1;
+    session.asked++;showHistoryQuestion();
+}
+function previousQuestion() {
+    cancelAdvance();
+    if(session.historyIndex<=0) return;
+    leaveQuestion();session.historyIndex--;showHistoryQuestion();
+}
+function refreshNavigationButtons() {
+    el('previousButton').disabled=session.historyIndex<=0;
+    el('nextButton').disabled=state.mode==='pgn' && !!state.question && session.historyIndex===session.history.length-1 && !session.bag.length;
+}
+function retryQuestion() {
+    cancelAdvance();
+    if(!state.question)return;
+    state.selections=[];state.revealed=false;
+    // Existing score is retained, including when retrying a previous problem.
+    renderQuestion();renderAnswers();
+}
+function chooseSign(i) {
+    if(!state.question || state.selections.length>=2) return;
+    const expected=state.question.target.answer;
+    const slot=state.selections.length;
+    state.selections.push({number:i, correct:i===expected[slot]});
+    if(!state.status && (!state.selections[slot].correct || state.selections.length===2)) {
+        state.status=state.selections.every(s=>s.correct) && state.selections.length===2 ? 'correct' : 'wrong';
+        const entry=session.history[session.historyIndex];
+        if(entry && !entry.result) {entry.result=state.status;session.record(state.status);}
+    }
+    renderAnswers();renderScore();
+    // Wait for BOTH answers, even if the first was scored wrong immediately.
+    if(state.autoAdvance && state.selections.length===2) {
+        cancelAdvance();state.advanceTimer=setTimeout(()=>{state.advanceTimer=null;nextQuestion();},650);
+    }
+}
+function switchMode(mode) {
+    if(!MODES.some(m=>m.id===mode))return;
+    cancelAdvance();leaveQuestion();
+    state.mode=mode;state.question=null;state.selections=[];state.status=null;
+    session.clearHistory();renderNavigation();renderConfig();
+    nextQuestion();refreshGameText();
+}
+function restartConfiguredSet() {
+    cancelAdvance();leaveQuestion();session.clearHistory();state.question=null;
+    nextQuestion();
+}
+function resetSession() {
+    cancelAdvance();session.reset();state.question=null;state.status=null;state.selections=[];
+    nextQuestion();
+}
+function renderEmptyQuestion() {
+    el('currentModeLabel').textContent=MODES.find(m=>m.id===state.mode).name;
+    el('questionKicker').textContent='GAME STUDY / PGN';
+    el('questionDisplay').textContent='—';
+    el('questionInstruction').textContent='Load a PGN game from the right-hand panel.';
+    el('questionNote').textContent='Moves and destination squares will appear here.';
+    el('revealButton').classList.add('hidden');
+    refreshNavigationButtons();
+}
+function signed(n) { return n>0?`+${n}`:n<0?`−${Math.abs(n)}`:"0"; }
+
+/* =============================================================
+   VIEW / UI
+   ============================================================= */
+function makeSymbolSVG(i) {
+    const col=COLORS[i%4];let geometry="";
+    if (i%3===0) geometry=`<circle class="glyph" cx="50" cy="50" r="35" fill="${col}"/>`;
+    else if(i%3===1) geometry=`<polygon class="glyph" points="50,11 89,78 11,78" fill="${col}"/>`;
+    else geometry=`<polygon class="glyph" points="50,7 80,50 50,93 20,50" fill="${col}"/>`;
+    return `<svg viewBox="0 0 100 100" aria-hidden="true" focusable="false">${geometry}</svg>`;
+}
+function renderSymbols() {
+    const grid=el("symbolGrid");grid.innerHTML="";
+    for(let i=0;i<12;i++) {
+        const button=document.createElement("button");
+        button.type="button";button.className="symbol-cell";button.dataset.index=i;
+        button.setAttribute("aria-label",`${SYMBOL_NAMES[i]}: ${COLOR_NAMES[i%4]} ${SHAPE_NAMES[i%3]}`);
+        button.title=`${SYMBOL_NAMES[i]} (${COLOR_NAMES[i%4]} ${SHAPE_NAMES[i%3]})`;
+        button.innerHTML=makeSymbolSVG(i)
+            +(state.showNames?`<span class="word-name">${SYMBOL_NAMES[i]}</span>`:"")
+            +(state.showKeys?`<span class="letter-hint">${KEY_LAYOUT[i]}</span>`:"");
+        button.addEventListener("click",()=>chooseSign(i));
+        grid.appendChild(button);
+    }
+    renderPicked();
+}
+function renderPicked() {
+    document.querySelectorAll(".symbol-cell").forEach(btn=>{
+        btn.classList.toggle("picked",state.selections.some(s=>s.number===Number(btn.dataset.index)));
+    });
+}
+function renderQuestion() {
+    const q=state.question;
+    if(!q) return;
+    const data=MODES.find(m=>m.id===state.mode);
+    el("currentModeLabel").textContent=data.name;
+    el("questionKicker").textContent=`${String(session.asked).padStart(2,"0")} / ${data.name}`;
+    const visible = state.showPrompt && (q.kind!=='pgn'||state.showPgnTarget);
+    el("questionDisplay").classList.toggle("is-hidden",!visible);
+    if(!visible) {
+        el("questionDisplay").textContent="•••";
+    } else if(q.kind==="offset") {
+        const icon=q.piece || "↗";
+        // Piece symbols are purely question cues; there are NO pieces on the side board.
+        el("questionDisplay").innerHTML=`<span class="piece" aria-hidden="true">${icon}</span><span>${q.origin.name}</span>`;
+    } else {
+        el("questionDisplay").textContent=choiceLabel(q);
+    }
+    if(q.kind==="pgn") {
+        el('questionInstruction').textContent=visible?'Give the destination’s sum sign, then its difference sign.':'Use the highlighted destination on the chessboard.';
+        el('questionNote').textContent=visible?q.context:`Move ${game.moves[q.pgnPly-1].number} · ${game.moves[q.pgnPly-1].side==='w'?'White':'Black'}`;
+        el('revealButton').classList.add('hidden');
+    } else if(q.kind==="offset") {
+        const files=q.df===0?"same file":`${signed(q.df)} file${Math.abs(q.df)===1?"":"s"}`;
+        const ranks=q.dr===0?"same rank":`${signed(q.dr)} rank${Math.abs(q.dr)===1?"":"s"}`;
+        el("questionInstruction").innerHTML=`<strong>${files}</strong> · <strong>${ranks}</strong> → give destination's two signs`;
+        el("questionNote").textContent=state.revealed?`Destination: ${q.target.name}`:q.context;
+        el("revealButton").classList.remove("hidden");
+        el("revealButton").textContent=state.revealed?"Hide destination":"Reveal destination";
+    } else {
+        el("questionInstruction").textContent="Give the sum sign, then the difference sign.";
+        el("questionNote").textContent=q.note?`${q.note} · ${q.context}`:q.context;
+        el("revealButton").classList.add("hidden");
+    }
+}
+function renderAnswers() {
+    [el("answer1"),el("answer2")].forEach((flag,index)=>{
+        const answer=state.selections[index];
+        flag.className="answer-flag";
+        if(!answer) flag.textContent="—";
+        else {
+            flag.textContent=SYMBOL_NAMES[answer.number];
+            flag.classList.add(answer.correct?"correct":"wrong");
+        }
+    });
+    renderPicked();
+}
+function renderScore() {
+    el("rightScore").textContent=session.correct;
+    el("wrongScore").textContent=session.wrong;
+    el("skipScore").textContent=session.skipped;
+    el("askedScore").textContent=session.asked;
+}
+function renderNavigation() {
+    let currentGroup="";
+    el("modeNav").innerHTML="";
+    MODES.forEach((mode,index)=>{
+        if(mode.group!==currentGroup) {
+            currentGroup=mode.group;
+            const h=document.createElement("div");h.className="rail-heading";h.textContent=currentGroup;
+            el("modeNav").appendChild(h);
+        }
+        const b=document.createElement("button");
+        b.type="button";b.className="mode-button"+(state.mode===mode.id?" active":"");
+        b.setAttribute("aria-pressed",state.mode===mode.id?"true":"false");
+        b.innerHTML=`<span class="mode-number">${String(index+1).padStart(2,"0")}</span><span><span class="mode-label">${mode.name}</span><span class="mode-desc">${mode.desc}</span></span>`;
+        b.addEventListener("click",()=>switchMode(mode.id));
+        el("modeNav").appendChild(b);
+    });
+}
+function renderConfig() {
+    const wrap=el("modeConfig");
+    const row=(id,label,content,note="")=>`<div class="field"><label for="${id}">${label}</label>${content}${note?`<div class="field-note">${note}</div>`:""}</div>`;
+    const select=(id,items,value)=>`<select id="${id}">${items.map(([v,t])=>`<option value="${v}" ${String(v)===String(value)?"selected":""}>${t}</option>`).join("")}</select>`;
+    let s="<div class='config-title'>Set options</div>";
+    switch(state.mode) {
+      case "rank": s+=row("rankOption","Rank",select("rankOption",Array.from({length:8},(_,i)=>[i+1,`Rank ${i+1}`]),config.rank));break;
+      case "file": s+=row("fileOption","File",select("fileOption",Array.from({length:8},(_,i)=>[i+1,`File ${letter(i+1)}`]),config.file));break;
+      case "pair":
+        s+=row("pairA","First square",`<input type="text" id="pairA" maxlength="2" value="${config.pairA}" spellcheck="false">`);
+        s+=row("pairB","Second square",`<input type="text" id="pairB" maxlength="2" value="${config.pairB}" spellcheck="false">`);
+        s+=`<div class="field"><button class="secondary-btn" id="applyPair" style="background:#d6c7ae;border-color:#d6c7ae;color:#24333a;width:100%;">Use this pair</button><div class="field-error" id="pairError" role="alert"></div></div>`;
+        break;
+      case "mirror": s+=row("mirrorAxis","Mirror across",select("mirrorAxis",[["ranks","Ranks (1 ↔ 8)"],["files","Files (a ↔ h)"],["both","Board centre (180°)"]],config.axis));break;
+      case "diagonal":
+        s+=row("familyOption","Coordinate to keep fixed",select("familyOption",[["sum","First: sum"],["difference","Second: difference"]],config.family));
+        s+=row("familyNumber","Sign on that diagonal",select("familyNumber",Array.from({length:12},(_,i)=>[i,`${SYMBOL_NAMES[i]} · ${i}`]),config.familyNumber));break;
+      case "reverse": s+="<p class='field-note'>Pairs whose two ReZo signs exchange places. Each partner follows the other.</p>";break;
+      case "twoRanks": s+="<p class='field-note'>From an odd-numbered rank, move two ranks forward or back. Answer for the destination, not the starting square.</p>";break;
+      case "knight": s+="<p class='field-note'>Start at the shown square and follow the signed knight offset. The destination stays hidden until revealed.</p>";break;
+      case "queen": s+="<p class='field-note'>The shown square holds the king. Place the queen at the specified knight offset and answer for the queen's square.</p>";break;
+      case "pgn": s+="<p class='field-note'>The moves of your loaded game are presented in order. The destination is highlighted on the chessboard. Load or replace PGN in the right panel.</p>";break;
+      default: s+="<p class='field-note'>All 64 squares. The entire set is shuffled before repeats.</p>";
+    }
+    wrap.innerHTML=s;
+    const bind=(id,fn)=>{const e=el(id);if(e)e.addEventListener("change",fn);};
+    bind("rankOption",e=>{config.rank=Number(e.target.value);restartConfiguredSet();});
+    bind("fileOption",e=>{config.file=Number(e.target.value);restartConfiguredSet();});
+    bind("mirrorAxis",e=>{config.axis=e.target.value;restartConfiguredSet();});
+    bind("familyOption",e=>{config.family=e.target.value;restartConfiguredSet();});
+    bind("familyNumber",e=>{config.familyNumber=Number(e.target.value);restartConfiguredSet();});
+    if(el("applyPair")) el("applyPair").addEventListener("click",()=>{
+        const a=parseSquare(el("pairA").value),b=parseSquare(el("pairB").value);
+        if(!a || !b || a.name===b.name) {el("pairError").textContent="Enter two different squares (e.g. c4 and c8).";return;}
+        config.pairA=a.name;config.pairB=b.name;el("pairError").textContent="";
+        el("pairA").value=a.name;el("pairB").value=b.name;
+        restartConfiguredSet();
+    });
+}
+
+/* =============================================================
+   CHESSBOARD — pieces and highlights follow the current PGN.
+   For future square-only drills ReZoBoard.highlightSquare('e4')
+   remains available independently of the PGN positions.
+   ============================================================= */
+function renderBoard() {
+    const board=el('chessboard');
+    const manualLit=new Set([...board.querySelectorAll('.chess-square.lit')].map(x=>x.dataset.square));
+    board.innerHTML='';
+    const ranks=state.boardFlipped?[1,2,3,4,5,6,7,8]:[8,7,6,5,4,3,2,1];
+    const files=state.boardFlipped?[8,7,6,5,4,3,2,1]:[1,2,3,4,5,6,7,8];
+    const pieces=game.loaded?game.positions[game.ply].cells:{};
+    const last=game.ply>0?game.moves[game.ply-1]:null;
+    for(const r of ranks)for(const f of files) {
+        const square=document.createElement('div'),name=letter(f)+r;
+        square.className='chess-square '+((f+r)%2===0?'dark':'light')+
+            (manualLit.has(name)?' lit':'')+(last?.from===name?' move-from':'')+(last?.to===name?' move-to':'');
+        square.dataset.square=name;
+        if(pieces[name]) {
+            const p=document.createElement('span');
+            p.className='board-piece '+(isWhite(pieces[name])?'white-piece':'black-piece');
+            p.textContent=PIECE_SIGNS[pieces[name]];
+            square.appendChild(p);
+        }
+        board.appendChild(square);
+    }
+    board.style.width=`${state.boardPixels}px`;
+    board.style.height=`${state.boardPixels}px`;
+    board.style.setProperty('--board-piece-size',`${Math.round((state.boardPixels-10)/8*.92)}px`);
+    el('orientationCaption').textContent=state.boardFlipped?"Black's perspective":"White's perspective";
+}
+function setBoardVisible(visible) {
+    state.boardVisible=visible;
+    el('app').classList.toggle('board-hidden',!visible);
+    el('boardAside').setAttribute('aria-hidden',String(!visible));
+    el('toggleBoardTop').textContent=visible?'Hide chessboard':'Show chessboard';
+}
+function highlightSquare(name) {
+    const c=parseSquare(name);if(!c)return false;
+    const square=el('chessboard').querySelector(`[data-square="${c.name}"]`);
+    if(square)square.classList.add('lit');
+    return !!square;
+}
+function clearHighlights(){el('chessboard').querySelectorAll('.chess-square.lit').forEach(x=>x.classList.remove('lit'));}
+window.ReZoBoard={highlightSquare,clearHighlights};
+
+/* =============================================================
+   LOCAL PGN / BOARD ENGINE
+   Plays the main line of an ordinary PGN. Supports SAN, FEN
+   starting positions, captures, castling, en passant and promotion.
+   Comments, NAGs and parenthesised variations are ignored.
+   Everything is local: no images, imports or network required.
+   ============================================================= */
+const START_FEN = 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1';
+const PIECE_SIGNS = {K:'♔',Q:'♕',R:'♖',B:'♗',N:'♘',P:'♙',k:'♚',q:'♛',r:'♜',b:'♝',n:'♞',p:'♟'};
+const game = {moves:[],positions:[],headers:{},ply:0,loaded:false};
+const isWhite = p => p===p.toUpperCase();
+const ownPiece = (p,turn) => !!p && (isWhite(p)===(turn==='w'));
+const oppositePiece = (p,turn) => !!p && !ownPiece(p,turn);
+const sqFile = s => s.charCodeAt(0)-96;
+const sqRank = s => Number(s[1]);
+function copyPos(p) {return {cells:{...p.cells}, turn:p.turn, castle:p.castle, ep:p.ep, fullmove:p.fullmove};}
+function readFen(fen) {
+    const parts=fen.trim().split(/\s+/);
+    if(parts.length<4 || !/^[wb]$/.test(parts[1])) throw Error('Invalid starting FEN.');
+    const cells={}; const ranks=parts[0].split('/');
+    if(ranks.length!==8) throw Error('FEN must contain eight ranks.');
+    ranks.forEach((row,i)=>{
+        let f=1;
+        for(const ch of row) {
+            if(/[1-8]/.test(ch)) f+=Number(ch);
+            else if(/[prnbqkPRNBQK]/.test(ch)) {
+                if(f>8) throw Error('Invalid FEN rank width.');
+                cells[letter(f)+(8-i)]=ch;f++;
+            } else throw Error('Unrecognised character in FEN.');
+        }
+        if(f!==9) throw Error('Invalid FEN rank width.');
+    });
+    if(Object.values(cells).filter(p=>p==='K').length!==1 ||
+       Object.values(cells).filter(p=>p==='k').length!==1) throw Error('FEN requires both kings.');
+    const castle=parts[2]==='-'?'':parts[2];
+    if(!/^([KQkq]{1,4}|)$/.test(castle)) throw Error('Invalid FEN castling permissions.');
+    if(parts[3]!=='-' && !parseSquare(parts[3])) throw Error('Invalid FEN en passant square.');
+    return {cells,turn:parts[1],castle,ep:parts[3]==='-'?null:parts[3],fullmove:Number(parts[5]||'1')};
+}
+function clearPath(pos,from,to) {
+    const df=Math.sign(sqFile(to)-sqFile(from)),dr=Math.sign(sqRank(to)-sqRank(from));
+    for(let f=sqFile(from)+df,r=sqRank(from)+dr;f!==sqFile(to)||r!==sqRank(to);f+=df,r+=dr) {
+        if(pos.cells[letter(f)+r]) return false;
+    }
+    return true;
+}
+function attacks(pos,from,to,piece) {
+    const df=sqFile(to)-sqFile(from),dr=sqRank(to)-sqRank(from);
+    switch(piece.toUpperCase()) {
+      case 'P':return Math.abs(df)===1&&dr===(isWhite(piece)?1:-1);
+      case 'N':return (Math.abs(df)===1&&Math.abs(dr)===2)||(Math.abs(df)===2&&Math.abs(dr)===1);
+      case 'K':return Math.max(Math.abs(df),Math.abs(dr))===1;
+      case 'B':return Math.abs(df)===Math.abs(dr)&&df!==0&&clearPath(pos,from,to);
+      case 'R':return (df===0||dr===0)&&(df!==0||dr!==0)&&clearPath(pos,from,to);
+      case 'Q':return ((df===0||dr===0)||Math.abs(df)===Math.abs(dr))&&(df!==0||dr!==0)&&clearPath(pos,from,to);
+    }
+    return false;
+}
+function squareAttacked(pos,to,bySide) {
+    for(const [from,piece] of Object.entries(pos.cells)) {
+        if(ownPiece(piece,bySide) && attacks(pos,from,to,piece)) return true;
+    }
+    return false;
+}
+function kingSafe(pos,side) {
+    const king=side==='w'?'K':'k';
+    const square=Object.keys(pos.cells).find(s=>pos.cells[s]===king);
+    return !!square && !squareAttacked(pos,square,side==='w'?'b':'w');
+}
+function canMove(pos,from,to,piece,needsCapture) {
+    if(from===to || ownPiece(pos.cells[to],pos.turn)) return false;
+    const df=sqFile(to)-sqFile(from),dr=sqRank(to)-sqRank(from),target=pos.cells[to];
+    if(piece.toUpperCase()==='P') {
+        const dir=isWhite(piece)?1:-1,home=isWhite(piece)?2:7;
+        if(needsCapture) return Math.abs(df)===1&&dr===dir&&(oppositePiece(target,pos.turn)||(!target&&pos.ep===to));
+        if(target || df!==0) return false;
+        if(dr===dir) return true;
+        return dr===dir*2&&sqRank(from)===home&&!pos.cells[letter(sqFile(from))+(sqRank(from)+dir)];
+    }
+    if(needsCapture?!oppositePiece(target,pos.turn):!!target) return false;
+    return attacks(pos,from,to,piece);
+}
+function makePositionMove(pos,from,to,promote=null,castleSide=null) {
+    const p=copyPos(pos),piece=p.cells[from];
+    if(!piece) throw Error('Internal move source error.');
+    delete p.cells[from];
+    if(piece.toUpperCase()==='P'&&pos.ep===to&&!pos.cells[to]&&sqFile(from)!==sqFile(to)) {
+        delete p.cells[letter(sqFile(to))+sqRank(from)];
+    }
+    if(piece.toUpperCase()==='K') {
+        p.castle=p.castle.replace(isWhite(piece)?/[KQ]/g:/[kq]/g,'');
+        if(castleSide) {
+            const r=isWhite(piece)?1:8;
+            const rookFrom=(castleSide==='K'?'h':'a')+r;
+            const rookTo=(castleSide==='K'?'f':'d')+r;
+            p.cells[rookTo]=p.cells[rookFrom];delete p.cells[rookFrom];
+        }
+    }
+    const revoked={a1:'Q',h1:'K',a8:'q',h8:'k'};
+    if(revoked[from]) p.castle=p.castle.replace(revoked[from],'');
+    if(revoked[to]) p.castle=p.castle.replace(revoked[to],'');
+    p.cells[to]=promote?(isWhite(piece)?promote:promote.toLowerCase()):piece;
+    p.ep=piece.toUpperCase()==='P'&&Math.abs(sqRank(to)-sqRank(from))===2
+          ?letter(sqFile(from))+((sqRank(from)+sqRank(to))/2):null;
+    if(p.turn==='b') p.fullmove++;
+    p.turn=p.turn==='w'?'b':'w';
+    return p;
+}
+function sanMove(pos,raw) {
+    const san=raw.trim().replace(/(?:e\.p\.)$/i,'').replace(/[+#!?]+$/g,'');
+    const castle=/^(?:O|0)-(?:O|0)(?:-(?:O|0))?$/i.exec(san);
+    if(castle) {
+        const side=san.replace(/0/g,'O').toUpperCase()==='O-O-O'?'Q':'K';
+        const isW=pos.turn==='w',r=isW?1:8,from='e'+r,to=(side==='K'?'g':'c')+r;
+        const rookFrom=(side==='K'?'h':'a')+r;
+        const permission=isW?side:side.toLowerCase();
+        const steps=(side==='K'?['f','g']:['d','c','b']).map(f=>f+r);
+        const kingPath=(side==='K'?['e','f','g']:['e','d','c']).map(f=>f+r);
+        if(!pos.castle.includes(permission)||pos.cells[from]!== (isW?'K':'k')||
+            pos.cells[rookFrom]!== (isW?'R':'r')||steps.some(s=>pos.cells[s])||
+            kingPath.some(s=>squareAttacked(pos,s,isW?'b':'w')))
+            throw Error(`Illegal castling move: ${raw}`);
+        return {next:makePositionMove(pos,from,to,null,side), from,to,san:raw,castle:true};
+    }
+    const match=/^([KQRBN])?([a-h])?([1-8])?(x)?([a-h][1-8])(?:=?([QRBN]))?$/.exec(san);
+    if(!match) throw Error(`Unrecognised move: ${raw}`);
+    const pieceType=(match[1]||'P').toUpperCase(),fileHint=match[2]?.toLowerCase(),rankHint=match[3];
+    const capture=!!match[4],to=match[5].toLowerCase(),promotion=match[6]?.toUpperCase()||null;
+    const choices=[];
+    for(const [from,piece] of Object.entries(pos.cells)) {
+        if(!ownPiece(piece,pos.turn)||piece.toUpperCase()!==pieceType) continue;
+        if(fileHint&&from[0]!==fileHint) continue;
+        if(rankHint&&from[1]!==rankHint) continue;
+        if(!canMove(pos,from,to,piece,capture)) continue;
+        if(pieceType==='P'&&(sqRank(to)===(pos.turn==='w'?8:1))!==!!promotion) continue;
+        if(promotion&&pieceType!=='P') continue;
+        const next=makePositionMove(pos,from,to,promotion);
+        if(kingSafe(next,pos.turn)) choices.push({next,from,to,san:raw,promotion});
+    }
+    if(choices.length!==1) throw Error(`${choices.length?'Ambiguous':'Illegal'} move: ${raw}`);
+    return choices[0];
+}
+function parsePgn(text) {
+    if(!text.trim()) throw Error('Paste PGN moves or choose a .pgn file first.');
+    if(text.length>250000) throw Error('PGN too large for this viewer (250 KB maximum).');
+    const headers={};
+    const source=text.replace(/^\uFEFF/,'');
+    const headerPattern=/^\s*\[([A-Za-z][A-Za-z0-9_]*)\s+"((?:\\.|[^"\\])*)"\s*\]\s*$/gm;
+    let hit;
+    while((hit=headerPattern.exec(source))!==null) headers[hit[1]]=hit[2].replace(/\\(["\\])/g,'$1');
+    // Strip header lines, nested RAV variations, braced comments and line comments.
+    const body=source.replace(headerPattern,'');
+    let main='',inBrace=0,inVariation=0,inLine=false;
+    for(let i=0;i<body.length;i++) {
+        const c=body[i];
+        if(inLine) {if(c==='\n'||c==='\r') {inLine=false;main+=' ';}continue;}
+        if(inBrace) {if(c==='{')inBrace++;else if(c==='}')inBrace--;continue;}
+        if(c==='{'){inBrace=1;continue;}
+        if(c===';'){inLine=true;continue;}
+        if(c==='('){inVariation++;continue;}
+        if(c===')'){if(inVariation)inVariation--;continue;}
+        if(inVariation)continue;
+        main+=c;
+    }
+    if(inBrace||inVariation) throw Error('Unclosed PGN comment or variation.');
+    main=main.replace(/\$\d+/g,' ').replace(/\b\d+\.(?:\.\.)?/g,' ').replace(/\.\.\./g,' ');
+    const tokens=main.trim().split(/\s+/).filter(Boolean);
+    let p=readFen(headers.FEN||START_FEN);
+    const positions=[copyPos(p)],moves=[];
+    for(const token of tokens) {
+        if(/^(?:1-0|0-1|1\/2-1\/2|\*)$/.test(token))break;
+        if(/^(?:\!|\?|\!\!|\?\?|\!\?|\?\!|e\.?p\.?)$/i.test(token))continue;
+        const movingSide=p.turn,number=p.fullmove;
+        const m=sanMove(p,token);
+        moves.push({from:m.from,to:m.to,san:token,side:movingSide,number});
+        positions.push(copyPos(m.next));p=m.next;
+        if(moves.length>2000)throw Error('Maximum of 2,000 half-moves per PGN.');
+    }
+    if(!moves.length) throw Error('No chess moves found in the PGN.');
+    return {moves,positions,headers};
+}
+function gameQuestion(m,i) {
+    return {target:parseSquare(m.to),origin:parseSquare(m.from),kind:'pgn',pgnPly:i+1,
+        context:`Move ${m.number}${m.side==='w'?'.':'...'} ${m.san}`,
+        note:`${m.side==='w'?'White':'Black'} · ${m.from} → ${m.to}`};
+}
+function refreshGameText() {
+    const title=[game.headers.White,game.headers.Black].filter(Boolean).join('  ·  ');
+    el('gamePlayers').textContent=game.loaded ? (title||game.headers.Event||'Loaded PGN game') : 'No game loaded';
+    const last=game.moves[game.ply-1];
+    const conceal=state.mode==='pgn' && (!state.showPgnTarget || !state.showPrompt);
+    el('gameMoveCaption').textContent=!game.loaded?'Paste or open a PGN to begin':
+        last?(conceal?`Move ${last.number} · ${last.side==='w'?'White':'Black'}`:`${last.number}${last.side==='w'?'.':'...'} ${last.san}  ·  ${last.from} → ${last.to}`):'Starting position';
+    el('gameProgress').textContent=game.loaded?`${game.ply} / ${game.moves.length} moves`:'—';
+    el('pgnPrev').disabled=!game.loaded||game.ply===0;
+    el('pgnNext').disabled=!game.loaded||game.ply===game.moves.length;
+    el('pgnFirst').disabled=!game.loaded||game.ply===0;
+}
+function goToPly(index) {
+    game.ply=Math.max(0,Math.min(game.moves.length,index));
+    renderBoard();refreshGameText();
+}
+function boardStep(n) {
+    if(!game.loaded)return;
+    if(state.mode==='pgn') {
+        if(n<0 && game.ply===1)goToPly(0);
+        else if(n>0 && game.ply===0)goToPly(1);
+        else if(n>0)nextQuestion();else previousQuestion();
+    } else goToPly(game.ply+n);
+}
+function loadPgnText(text) {
+    let parsed;
+    try {parsed=parsePgn(text);}
+    catch(err) {el('pgnError').textContent=err.message;return false;}
+    game.moves=parsed.moves;game.positions=parsed.positions;game.headers=parsed.headers;
+    game.loaded=true; game.ply=0;
+    el('pgnError').textContent='';
+    el('pgnEditor').classList.add('hidden');
+    el('togglePgn').setAttribute('aria-expanded','false');
+    el('togglePgn').textContent='PGN ▸';
+    setBoardVisible(true);
+    switchMode('pgn'); // loading begins at the first move, ready for ReZo answers
+    el('nextButton').focus({preventScroll:true}); // keyboard N/P immediately usable after loading
+    return true;
+}
+
+/* =============================================================
+   EVENTS / STARTUP
+   ============================================================= */
+function installEvents() {
+    el("nextButton").addEventListener("click",nextQuestion);
+    el("previousButton").addEventListener("click",previousQuestion);
+    el("retryButton").addEventListener("click",retryQuestion);
+    el("resetScore").addEventListener("click",resetSession);
+    el("revealButton").addEventListener("click",()=>{state.revealed=!state.revealed;renderQuestion();});
+    el("toggleBoardTop").addEventListener("click",()=>setBoardVisible(!state.boardVisible));
+    el("hideBoardRight").addEventListener("click",()=>setBoardVisible(false));
+    el("flipBoard").addEventListener("click",()=>{state.boardFlipped=!state.boardFlipped;renderBoard();});
+    el("smallerBoard").addEventListener("click",()=>{state.boardPixels=Math.max(218,state.boardPixels-22);renderBoard();});
+    el("largerBoard").addEventListener("click",()=>{state.boardPixels=Math.min(350,state.boardPixels+22);renderBoard();});
+    el("showNames").addEventListener("change",e=>{state.showNames=e.target.checked;renderSymbols();});
+    el("showKeys").addEventListener("change",e=>{state.showKeys=e.target.checked;renderSymbols();});
+    el("showPrompt").addEventListener("change",e=>{state.showPrompt=e.target.checked;if(state.question)renderQuestion();});
+    el('autoAdvance').addEventListener('change',e=>{state.autoAdvance=e.target.checked;if(!state.autoAdvance)cancelAdvance();});
+    el('showPgnTarget').addEventListener('change',e=>{state.showPgnTarget=e.target.checked;if(state.question)renderQuestion();refreshGameText();});
+    el('pgnFirst').addEventListener('click',()=>{
+        goToPly(0);
+    });
+    el('pgnPrev').addEventListener('click',()=>boardStep(-1));
+    el('pgnNext').addEventListener('click',()=>boardStep(1));
+    const closeEditor=()=>{el('pgnEditor').classList.add('hidden');el('togglePgn').textContent='PGN ▸';el('togglePgn').setAttribute('aria-expanded','false');};
+    el('togglePgn').addEventListener('click',()=>{
+        const opening=el('pgnEditor').classList.contains('hidden');
+        el('pgnEditor').classList.toggle('hidden',!opening);
+        el('togglePgn').textContent=opening?'PGN ▾':'PGN ▸';
+        el('togglePgn').setAttribute('aria-expanded',String(opening));
+        if(opening)el('pgnText').focus();
+    });
+    el('closePgn').addEventListener('click',closeEditor);
+    el('loadPgn').addEventListener('click',()=>loadPgnText(el('pgnText').value));
+    el('pgnFile').addEventListener('change',async e=>{
+        const file=e.target.files?.[0];if(!file)return;
+        if(file.size>250000){el('pgnError').textContent='PGN too large (250 KB maximum).';return;}
+        try{el('pgnText').value=await file.text();el('pgnError').textContent='';loadPgnText(el('pgnText').value);}
+        catch(err){el('pgnError').textContent='Could not read that file.';}
+    });
+    document.addEventListener("keydown",e=>{
+        if(e.ctrlKey||e.altKey||e.metaKey||e.repeat) return;
+        const active=document.activeElement;
+        if(active && (active.tagName==="SELECT" || active.tagName==="TEXTAREA" || (active.tagName==="INPUT" && !["checkbox","radio","button"].includes(active.type)))) return;
+        const k=e.key.toUpperCase();
+        if(k==="N") {e.preventDefault();nextQuestion();}
+        else if(k==="P") {e.preventDefault();previousQuestion();}
+        else if(k==="T") {e.preventDefault();retryQuestion();}
+        else if(k==="B") {e.preventDefault();setBoardVisible(!state.boardVisible);}
+        else if(KEY_LAYOUT.includes(k)) {e.preventDefault();chooseSign(KEY_LAYOUT.indexOf(k));}
+    });
+}
+function start() {
+    renderNavigation();renderConfig();renderSymbols();renderBoard();refreshGameText();installEvents();nextQuestion();
+}
+start();
+// Read-only testing/debugging hook: not required for normal training.
+window.ReZoDebug={getState:()=>({mode:state.mode,question:state.question?.target.name,
+    answer:state.question?.target.answer,shownSource:state.question?.origin?.name,
+    scores:{correct:session.correct,wrong:session.wrong,skipped:session.skipped,asked:session.asked},
+    chosen:state.selections.map(x=>x.number),status:state.status,bagLeft:session.bag.length,
+    historyIndex:session.historyIndex,historyLength:session.history.length,
+    game:{loaded:game.loaded,ply:game.ply,moves:game.moves.length},
+    autoAdvance:state.autoAdvance})};
+</script>
+</body>
+</html>
